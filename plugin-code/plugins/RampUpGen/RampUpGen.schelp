@@ -1,0 +1,26 @@
+class:: RampUpGen
+summary:: Ramping up values
+related:: TODO
+categories:: UGens>TODO
+
+description::
+
+Ramping up values
+
+
+classmethods::
+
+method::ar, kr
+
+argument::TODO
+
+argument::TODO
+
+
+examples::
+
+code::
+
+{ RampUpGen.ar(/* TODO */) }.play
+
+::
