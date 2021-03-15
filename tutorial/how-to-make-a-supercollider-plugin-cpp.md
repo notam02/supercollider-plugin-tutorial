@@ -2,7 +2,7 @@
 title: "SuperCollider serverplugins in C++"
 subtitle: "A tutorial"
 titlepage: true
-author: Mads Kjeldgaard, The Norwegian Centre for Technology and Art (NOTAM) 
+author: Mads Kjeldgaard, The Norwegian Centre for Technology and Art (NOTAM)
 toc:  true
 linkcolor: blue
 urlcolor: blue
@@ -17,40 +17,40 @@ In [SuperCollider](https://supercollider.github.io/), a unit generator (UGen) is
 
 SuperCollider comes prepackaged with a plethora of different UGens.
 
-Expanding the selection of UGens is done by installing _plugins_ - collections of user contributed UGens (the words UGen, unit generators and plugins are often used interchangeably in SuperCollider). 
+Expanding the selection of UGens is done by installing _plugins_ - collections of user contributed UGens (the words UGen, unit generators and plugins are often used interchangeably in SuperCollider).
 
 The [sc3-plugins repository](https://github.com/supercollider/sc3-plugins) contains a large library of community developed plugins (of varying age and quality) and other notable examples of plugins include IEM's [vstplugin plugin](https://git.iem.at/pd/vstplugin) and [The Fluid Corpus Manipulation Project](https://www.flucoma.org/).
 
 This is all made possible by SuperCollider's [plugin API](http://doc.sccode.org/Reference/ServerPluginAPI.html) that provides a simple way to write plugins in C or C++ and hook them in to SuperCollider's synthesis server as one of many building blocks. Each addition of a plugin makes possible an abundance of new possibilities for the user when combined with the existing plugins.
 
-In this tutorial series, we will cover some of the basics of writing such plugins using the C++ interface available to plugin authors (if you should prefer writing your plugin in pure C, then I would advise reading Dan Stowell's excellent chapter on just that in the MIT SuperCollider book). 
+In this tutorial series, we will cover some of the basics of writing such plugins using the C++ interface available to plugin authors (if you prefer writing your plugin in pure C, then I would advise reading Dan Stowell's excellent chapter on just that in the MIT SuperCollider book).
 
-Before continuing I would like to extend a big thank you to the ever friendly and generous SuperCollider community for helping me understand these things a bit better and to my workplace [Notam](https://notam.no) for allowing me time to work on this.
+Before continuing I would like to extend a big thank you to the ever friendly and generous SuperCollider community for helping me understand these things a bit better, and to my workplace [Notam](https://notam.no) for allowing me time to work on this.
 
-And on that note: If you need help with plugin development, there is [an entire subforum dedicated to the subject over on the SuperCollider forum](https://scsynth.org/c/development/server-plugins/29).
+On that note: If you need help with plugin development, there is [an entire subforum dedicated to the subject over on the SuperCollider forum](https://scsynth.org/c/development/server-plugins/29).
 
 ## Why write a plugin for SuperCollider?
 Most users of SuperCollider will never experience the need for writing a plugin simply because the library of UGens that comes with SuperCollider is so rich in selection and effective in performance.
 
 That said, there are some reasons for doing it anyway:
 
-1. _Learning_: It's a great way to learn or get better at C++ or DSP (Digital signal processing) because it lets you focus on the sound and the algorithms, with fairly short compilation times and the ability to quickly test it out in SuperCollider. 
+1. _Learning_: It's a great way to learn or get better at C++ or DSP (Digital signal processing) because it lets you focus on the sound and the algorithms, with fairly short compilation times and the ability to quickly test it out in SuperCollider.
 2. _Contributing_: You get to expand the ever evolving world of sonic possibilities in SuperCollider and contribute to a lively and creative community that has been going for more than 25 years.
 3. _Expanding sonic possibilities_: There may be some functionality you would love to see added to SuperCollider (see the [flucoma project](https://flucoma.org/) for a really impressive example of this).
 
-# Part 1: Demystifying the SuperCollider plugin 
+# Part 1: Demystifying the SuperCollider plugin
 
 Before actually creating a plugin, let's take a bit of a detour to have a look at what a plugin project contains and how to use the CMake build generator system to turn our code into UGen objects for SuperCollider.
 
 ## Quick starting a plugin project
 
-The fastest way to create a plugin project is to use the SuperCollider development team's [cookiecutter template](https://github.com/supercollider/cookiecutter-supercollider-plugin). By running this script in a terminal and answering the questionnaire it presents you with, you should be able to quickly generate all the files and project structure necessary for a plugin. See the cookiecutter template's project page for the most updated information about how to use this but in short it boils down to first installing the cookiecutter tool which is a python library:
+The fastest way to create a plugin project is to use the SuperCollider development team's [cookiecutter template](https://github.com/supercollider/cookiecutter-supercollider-plugin). By running this script in a terminal and answering the questionnaire it presents you with, you should be able to quickly generate all the files and project structure necessary for a plugin. See the cookiecutter template's project page for the most updated information about how to use this, but in short it boils down to first installing the cookiecutter tool which is a python library:
 
 ```bash
 $ python3.7 -m pip install cookiecutter
 ```
 
-And then you can run the cookiecutter command line tool and supply it with the URL of SuperCollider's cookiecutter template:
+Then you can run the cookiecutter command line tool and supply it with the URL of SuperCollider's cookiecutter template:
 
 ```bash
 $ cookiecutter https://github.com/supercollider/cookiecutter-supercollider-plugin
@@ -77,36 +77,36 @@ A typical project structure for a plugin looks something like this:
 |
 |-- README.md
 ```
-Let's take it from the bottom up:
+Let's take it from the bottom up:  
 First there is a readme. This explains what the plugin is and how to install it.
-Then there is a subfolder called _plugins_ - this is where we will be spending most of our time writing plugins. This folder contains another subfolder called _SimpleGain_ which is the name of this particular plugin and then the four files you need for a plugin:
+Then there is a subfolder called _plugins_ - this is where we will be spending most of our time writing plugins. This folder contains another subfolder called _SimpleGain_ which is the name of this particular plugin, and then the four files you need for a plugin:
 
 1. A .hpp file that declares your C++ code and imports all the necessary files.
-2. A .cpp file - this C++ implementation file is where we define our algorithms (typically in a setup function (a constructor), an optional teardown function ( a destructor ) and a calculation function that is called on each block of sound samples we put in to our plugin).
+2. A .cpp file - this C++ implementation file is where we define our algorithms (typically in a setup function (a constructor), an optional teardown function (a destructor) and a calculation function that is called on each block of sound samples we put in to our plugin).
 3. A .sc SuperCollider class file that bridges our C++ code to the SuperCollider language
-4. A .schelp file for the SuperCollider help system which explains the usage of the plugin and demonstrates it's usage in one or more examples.
+4. A .schelp file for the SuperCollider help system which explains the usage of the plugin and demonstrates its usage in one or more examples.
 
-The _cmake_modules_ subfolder and the CMakeLists.txt file are used for building and compiling our project (we will get back to that later).
+The _cmake_modules_ subfolder and the CMakeLists.txt file are used for building and compiling our project (we will get back to this later).
 
-And then lastly, there is a LICENSE file containing the license for the plugin's code (SuperCollider itself is licensed under the GPL-3 license). 
+And then lastly, there is a LICENSE file containing the license for the plugin's code (SuperCollider itself is licensed under the GPL-3 license).
 
 ## CMake is your friend
 Building, compiling and installing your plugin(s) is _one process_ handled by a program called CMake.
 
-It is easy to get freaked out by CMake. At first, using it may seem like a semi esoteric experience but _CMake is actually your friend_. In a SuperCollider plugin project, the main job of CMake is to keep track of your build options, what platform your are on and where the files needed are - and then, with that information at hand, construct a build system, compile your code and install it for you.
+It is easy to get freaked out by CMake. At first, using it may seem like a semi-esoteric experience but _CMake is actually your friend_. In a SuperCollider plugin project, the main job of CMake is to keep track of your build options, what platform your are on and where the files needed are - and then, with that information at hand, construct a build system, compile your code and install it for you.
 
 It is not strictly necessary to go deep in to the world of CMake to write a SuperCollider plugin but familiarizing yourself with some of the absolute basics can be helpful, which is why we will spend a bit of time doing just that before actually starting on our plugin (should you feel the need to go deep, then [Craig Scott's book "Professional CMake" is a nice resource](https://https://crascit.com/professional-cmake/)).
 
 ## CMake'ing a plugin project
-CMake needs a copy of the SuperCollider source code to be able to build a plugin project. 
+CMake needs a copy of the SuperCollider source code to be able to build a plugin project.
 
-The path to this is supplied to CMake by using the `-DSC_PATH` flag like so: 
+The path to this is supplied to CMake by using the `-DSC_PATH` flag like so:
 
 ```bash
 -DSC_PATH=/path/to/supercollider/sourcecode
 ```
 
-The reason for this is that the SuperCollider source code contains all the actual library code you need to make your plugin work - including the plugin API, so the compiler needs these to be able to create the necessary objects. 
+The reason for this is that the SuperCollider source code contains all the actual library code you need to make your plugin work - including the plugin API, so the compiler needs these to be able to create the necessary objects.
 
 CMake also needs to know where your plugin code is. This is done in the `CMakeLists.txt` file at the root of your project where the paths (and other useful options) are defined. You generally only need to change this file if you rename your files, move them or want to add more files.
 
@@ -150,7 +150,7 @@ From the root of your project, run:
 
 ```bash
 mkdir build # Create a build sub directory
-cmake -B "build" -S . -DSC_PATH="/path/to/sc/sourcecode" \ 
+cmake -B "build" -S . -DSC_PATH="/path/to/sc/sourcecode" \
 	-DCMAKE_INSTALL_PREFIX="/path/to/your/extensions/dir"
 ```
 
@@ -169,14 +169,14 @@ cmake --build build --config "Release" --target install
 
 ### Step 3: Try it out in SuperCollider
 
-If compilation was successful, you should now have compiled and installed your project to your SuperCollider extensions directory. 
+If compilation was successful, you should now have compiled and installed your project to your SuperCollider extensions directory.
 
 If you have SuperCollider open, recompile the class library and search the help system for your plugin to verify that it showed up.
 
-In the next part of this tutorial series, we will go deeper in to the actual code of a plugin.
+In the next part of this tutorial series, we will go deeper into the actual code of a plugin.
 
 # Part 2: Creating a ramp generator plugin
-In this part of the tutorial we will start work on a plugin project. We will create a very simple oscillator that ramps from 0.0 to 1.0. This is sometimes known as a phasor as it is often used internally in code to read through lookup tables or as a way to have an internal clock that steps through data. It is also known as a sawtooth oscillator and may be used at audio rate to create sound signals with many (harsh) overtones. 
+In this part of the tutorial we will start work on a plugin project. We will create a very simple oscillator that ramps from 0.0 to 1.0. This is sometimes known as a phasor as it is often used internally in code to read through lookup tables or as a way to have an internal clock that steps through data. It is also known as a sawtooth oscillator and may be used at audio rate to create sound signals with many (harsh) overtones.
 
 ## Control, audio and scalar rate: A note on calculation rates
 But first: We need to talk about calculation rates.
@@ -196,26 +196,26 @@ SinOsc.ar(100);
 SampleRate.ir();
 ```
 
-These three different calculation rates are optimized for different purposes: 
+These three different calculation rates are optimized for different purposes:
 
-1. **Scalar rate**, also known as _initialization rate_ is useful if your plugin should output a value when it is initialized and then do nothing else. 
-2. **Audiorate** is self-explanatory, but what it means in practice is your calculation function will receive a block of audio samples, loop over each sample, do something with the data and then return an output block of samples. Every time your plugin's calculation function is called it is supplied with an argument containing the value of the number of samples to process. This is typically 64 samples but the user may change this in the server options.
-3. **Controlrate**. This is a more performant alternative to audio rate calculation that only produces one value per block of samples. It is equivalent to setting the number of samples in the calculation function to 1.
+1. **Scalar rate**, also known as _initialization rate_ is useful if your plugin should output a value when it is initialized and then do nothing else.
+2. **Audio rate** is self-explanatory, but what it means in practice is your calculation function will receive a block of audio samples, loop over each sample, do something with the data and then return an output block of samples. Every time your plugin's calculation function is called it is supplied with an argument containing the value of the number of samples to process. This is typically 64 samples, but the user may change this in the server options.
+3. **Control rate**. This is a more performant alternative to audio rate calculation that only produces one value per block of samples. It is equivalent to setting the number of samples in the calculation function to 1.
 
 Here is a little table to help you remember this:
 
 
-| **Rate**         | **sclang method name** |         **Update rate**         |
-|--------------|:------------------|:---------------------------|
-| Audio rate   |        *ar         | numSamples/sampleblock | 
-| Control rate |        *kr         |  1/sampleblock |
-| Scalar       |        *ir         | at UGen initialization |
+| **Rate**       | **sclang method name** | **Update rate**              |
+| -------------- | :------------------    | :--------------------------- |
+| Audio rate     | *ar                    | numSamples/sampleblock       |
+| Control rate   | *kr                    | 1/sampleblock                |
+| Scalar         | *ir                    | at UGen initialization       |
 
 
 ## Ramping values
-A ramp generator is a simple algorithm that counts up to a certain threshold, then wraps back to where it began. This technique is seen in sawtooth and phasor oscillators. Not only is the signal itself useful in modulating parameters as an LFO but the core algorithm is often used in other oscillator functions to index into wavetables and similar things.
+A ramp generator is a simple algorithm that counts up to a certain threshold, then wraps back to where it began. This technique is seen in sawtooth and phasor oscillators. Not only is the signal itself useful in modulating parameters as an LFO, but the core algorithm is often used in other oscillator functions to index into wavetables and similar things.
 
-The idea is simple really: Imagine you are counting from 0 to 10 and then every time you reach 10, you start over at 0. If you were to plot this on a graph you would see a ramp signal (which looks like a sawtooth).
+The idea is simple, really: Imagine you are counting from 0 to 10 and then every time you reach 10, you start over at 0. If you were to plot this on a graph you would see a ramp signal (which looks like a sawtooth).
 
 We will be using the same concept in our ramp UGen but instead of counting whole numbers we will be counting floats, which is the type of number that comes out of a UGen.
 
@@ -226,9 +226,9 @@ If you followed the previous tutorial in this series, you will know that the eas
 
 The first thing to write is the SuperCollider class that will be responsible for calling our C++ code. The file is called something like `RampUpGen.sc`.
 
-It defines the UGen's audio rate (`*ar`) and control rate (`*kr`) methods and sets the frequency argument's default value. 
+It defines the UGen's audio rate (`*ar`) and control rate (`*kr`) methods and sets the frequency argument's default value.
 
-Another important (and often overlooked) aspect of the SuperCollider class interface for plugins is that they are tasked with checking the rates of the inputs to the parameters and ensure an error is raised if for example a user inputs an audio rate signal in an input that was written for control rate. 
+Another important (and often overlooked) aspect of the SuperCollider class interface for plugins is that they are tasked with checking the rates of the inputs to the parameters and ensure an error is raised if for example a user inputs an audio rate signal in an input that was written for control rate.
 
 ```supercollider
 RampUpGen : UGen {
@@ -262,9 +262,9 @@ RampUpGen : UGen {
 _Our SuperCollider class above inherits from [UGen](http://doc.sccode.org/Classes/UGen.html) - this results in a 1 channel UGen. If you need more outputs than that, you need to inherit from [MultiOutUGen](http://doc.sccode.org/Classes/MultiOutUGen.html) instead (don't forget to call `this.initOutputs(numChannels, rate)` somewhere in your class if you do end up using this, it will (silently) fail otherwise)._
 
 ### Setting up the header file
-Next step is to open up `RampUpGen.hpp` in a text editor. This is your header file for your plugin where the correct files are imported and your new C++ class `RampUpGen` inherits it's functionality from the SCUnit class. The class should look something like this:
+Next step is to open up `RampUpGen.hpp` in a text editor. This is your header file for your plugin where the correct files are imported and your new C++ class `RampUpGen` inherits its functionality from the SCUnit class. The class should look something like this:
 
-```cpp 
+```cpp
 class RampUpGen : public SCUnit {
 public:
   RampUpGen();
@@ -285,32 +285,32 @@ double m_phase{0.0};
 ### Creating the calculation function
 It's now time to define the behaviour of our plugin. Move into the `RampUpGen.cpp` file.
 
-The core of our plugin will be the calculation function `RampUpGen::next(int nSamples)`. 
+The core of our plugin will be the calculation function `RampUpGen::next(int nSamples)`.
 
 Let's define this function.
 
 First, we need to figure out how much to increment our counter at every clock tick.
 
-This is done by dividing the frequency of our ramp generator with the samplerate (which is available to us using the `sampleRate()` function that comes with the plugin API) of our UGen. 
+This is done by dividing the frequency of our ramp generator with the samplerate (which is available to us using the `sampleRate()` function that comes with the plugin API) of our UGen.
 
 We will let the user of our UGen decide what frequency our ramp generator should be running at.
 
-This is done by polling the value that is supplied via the `frequency` parameter in the SuperCollider class defined above. 
+This is done by polling the value that is supplied via the `frequency` parameter in the SuperCollider class defined above.
 
-For this purpose, we use the `in0(int argumentInputNum)` method that comes with the plugin interface - it takes the index of the input argument as a parameter, in this case there is only one input parameter `frequency` so this will be equal to 0. 
+For this purpose, we use the `in0(int argumentInputNum)` method that comes with the plugin interface - it takes the index of the input argument as a parameter, in this case there is only one input parameter `frequency` so this will be equal to 0.
 
-One last thing to note here is that we will poll this argument at control rate, that is: It only inputs one value per sample block (see explanation above ( To get the full sample block input for audio rate parameters you use the `in(int argumentInputNum)` method).
+One last thing to note here is that we will poll this argument at control rate, that is: It only inputs one value per sample block (see explanation above). To get the full sample block input for audio rate parameters you use the `in(int argumentInputNum)` method.
 
-```cpp 
+```cpp
 // First UGen input is the frequency parameter
 const float frequency = in0(0);
 
-// Calculate increment value. 
-// Double precision is important in phase values 
+// Calculate increment value.
+// Double precision is important in phase values
 // because division errors are accumulated as well
 double increment = static_cast<double>(frequency) / sampleRate();
 ```
-Every time our calculation function is called, we need to increase our output by _increment_ amount. 
+Every time our calculation function is called, we need to increase our output by _increment_ amount.
 
 ```cpp
 m_phase += increment;
@@ -334,7 +334,7 @@ if (m_phase > maxvalue) {
 That's it for the calculation function.
 
 ### Documentation
-The last thing we need to do is to document the functionality of our UGen so that it is usable for others. This is done in SuperCollider help file that will go with our plugin called `RampUp.schelp` (see the [writing help](http://doc.sccode.org/Guides/WritingHelp.html) and / or [scdoc syntax](http://doc.sccode.org/Reference/SCDocSyntax.html) help files for more information on how to do this). Be sure to add some good and clear examples to this.
+The last thing we need to do is to document the functionality of our UGen so that it is usable for others. This is done in SuperCollider help file that will go with our plugin called `RampUp.schelp`. See the [writing help](http://doc.sccode.org/Guides/WritingHelp.html) and / or [scdoc syntax](http://doc.sccode.org/Reference/SCDocSyntax.html) help files for more information on how to do this. Be sure to add some good and clear examples to this.
 
 The schelp file could look something like this:
 
@@ -376,26 +376,26 @@ Before our plugin is done, there are some nice little things we can do to touch 
 
 ## Using enums to keep track of inputs
 
-Inputs and outputs in the C++ side of your UGen are represented as integers. The frequency-parameter in our RampUpGen UGen is represented by `0` since it's the first input to the UGen. To make it more readable and easier to keep track of when you add more parameters later on, a simple trick is to use [enums](https://https://en.cppreference.com/w/cpp/language/enum). At it's most basic, an enum may be used as a collection of aliases for integers. Using this for your parameters makes your code easier to read and maintain.
+Inputs and outputs in the C++ side of your UGen are represented as integers. The frequency-parameter in our RampUpGen UGen is represented by `0` since it's the first input to the UGen. To make it more readable and easier to keep track of parameters when you add more of them later on, a simple trick is to use [enums](https://https://en.cppreference.com/w/cpp/language/enum). At it's most basic, an enum may be used as a collection of aliases for integers. Using this for your parameters makes your code easier to read and maintain.
 
 In your header file, under the `private:`-keyword, add the following:
 
-```cpp 
+```cpp
 enum Inputs { Frequency };
 ```
-Then, in your plugin code, whenever you need the input number for frequency you simply type `Frequency` (another nice thing is that if you reorder your parameters, in your C++ you only have to reorder the items in this enum and the changes will automatically propagate).
+Then, in your plugin code, whenever you need the input number for frequency you simply type `Frequency`. Another nice thing is that you only have to reorder the items in this enum if you reorder your parameters, and the changes will automatically propagate.
 
 ## Delegating functionality to functions
-Another thing that can help keep your code clean is to delegate some of the functionality to methods outside of the calculation function. Because we are about to add a second calculation function, we can extract a bit of the ramp code to it's own method and then call that in the calculation function.
+Another thing that can help keep your code clean is to delegate some of the functionality to methods outside of the calculation function. Because we are about to add a second calculation function, we can extract a bit of the ramp code to its own method and then call that in the calculation function.
 
-To do this, in your header file add 
+To do this, add in your header file:
 
-```cpp 
+```cpp
 inline float progressPhasor(float frequency);
 ```
 
 And then implement it in your *.cpp*-file:
-```cpp 
+```cpp
 inline float RampUpGen::progressPhasor(float frequency) {
   // Calculate increment value.
   // Double precision is important in phase values
@@ -421,7 +421,7 @@ inline float RampUpGen::progressPhasor(float frequency) {
 
 ## Interpolating control rate parameters
 
-Sometimes the user of a plugin may wish to modulate one of the UGen's parameters. In an environment such as SuperCollider, this is to be expected. When doing this, you may end up hearing crunchy or glitchly effects in the sound of your UGen. This is caused by a lack of interpolation in the control signal between each sample being processed. This results in steppy jumps between values instead of smooth trajectories. Let's fix this!
+Sometimes the user of a plugin may wish to modulate one of the UGen's parameters. In an environment such as SuperCollider, this is to be expected. When doing this, you may end up hearing crunchy or glitchy effects in the sound of your UGen. This is caused by a lack of interpolation in the control signal between each sample being processed. This results in steppy jumps between values instead of smooth trajectories. Let's fix this!
 
 The plugin API contains a very useful function for exactly this purpose. The trick is to use the type `SlopeSignal<float>` to represent and contain our input parameter's value. This is produced using the `makeSlope(current_value, previous_value)` function. And then, on each iteration of our calculation function's `for`-loop, we use the `.consume()` method to slowly step from the previous sample block's value to the current one. And then, after the `for`-loop we store the final value in a member variable that will be used next time the block is being processed.
 
@@ -457,7 +457,7 @@ void RampUpGen::next(int nSamples) {
     outbuf[i] = m_phase;
   }
 
-  // Store final value of frequency slope to 
+  // Store final value of frequency slope to
   // be used next time the calculation
   // function runs
   m_frequency_past = slopedFrequency.value;
@@ -468,7 +468,7 @@ Let's take this a step further. We actually only need to interpolate the frequen
 
 The way to work around this and similar problems with multiple situations for the same plugin is to use multiple calculation functions, one for each calculation rate input for example. In our example we only have one parameter so we can make a `next_a` and `next_k` version of that function, one for audio rate inputs to the `frequency`-parameter and one for control (and scalar) rate inputs.
 
-The Server Plugin API comes with a function you can use to poll an input number to see what rate it is running at: 
+The Server Plugin API comes with a function you can use to poll an input number to see what rate it is running at:
 ```cpp
 inRate(int inputNumber)
 ```
@@ -495,7 +495,7 @@ RampUpGen::RampUpGen() {
 
 And then our two calculation functions (`next_a` for audio rate `frequency`-parameter and `next_k` for control rate):
 
-```cpp 
+```cpp
 // Calculation function for audio rate frequency input
 void RampUpGen::next_a(int nSamples) {
   const float *frequency = in(Frequency);
@@ -583,17 +583,17 @@ endif(CMAKE_COMPILER_IS_GNUCXX)
 
 ## Common issues
 
-One of the difficult things when coding plugins i C++ is that when something is wrong, you have to debug - you rarely get nice error messages to help you out. That said, here are some of the problems and causes that have caused me trouble in 9/10 situations.
+One of the difficulties of coding plugins in C++ is that when something is wrong, you have to debug - you rarely get nice error messages to help you out. That said, here are some of the problems and causes that have caused me trouble in 9/10 situations.
 
-**Problem**: _The server exits as soon as the plugin is initialized in a patch_. 
+**Problem**: _The server exits as soon as the plugin is initialized in a patch_.
 
-Whenever I have experienced this, it has come down to problems in the way I have allocated memory. 
+Whenever I have experienced this, it has come down to problems in the way I have allocated memory.
 
 This could also be caused by something dividing by zero somewhere in your code.
 
-Another common mistake I make is to inherit the wrong class in the `.sc`-file containing the SuperCollider interface for my C++ code. This error may occur if for example you are inheriting from `MultiOutUGen` but haven't defined how many channels to use.
+Another common mistake I make is to inherit the wrong class in the `.sc`-file containing the SuperCollider interface for my C++ code. This error may occur if, for example, you are inheriting from `MultiOutUGen` but haven't defined how many channels to use.
 
-**Problem**: _The sound is crunchy when I modulate the parameters of my plugin_ 
+**Problem**: _The sound is crunchy when I modulate the parameters of my plugin_
 
 You probably haven't used interpolation for control rate parameters. See the previous part of this tutorial about smoothing control rate signals using `SlopeSignal`.
 
