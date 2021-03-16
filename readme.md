@@ -1,4 +1,4 @@
-# How to maker a SuperCollider server plugin in C++
+# How to make a SuperCollider server plugin in C++
 This repository contains a tutorial on how to create a SuperCollider plugin in C++.
 
 ## Build
