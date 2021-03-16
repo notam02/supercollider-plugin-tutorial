@@ -605,4 +605,4 @@ Make sure that all variables are initialized correctly. C++ allows you to use va
 
 ---
 
-This tutorial was written with the support of [Notam - The Norwegian Centre for Technology and Art](notam.no/).
+This tutorial was written with the support of [Notam - The Norwegian Centre for Technology in Arts and Music](notam.no/).
