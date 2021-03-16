@@ -2,7 +2,7 @@
 title: "SuperCollider serverplugins in C++"
 subtitle: "A tutorial"
 titlepage: true
-author: Mads Kjeldgaard, The Norwegian Centre for Technology and Art (NOTAM) 
+author: Mads Kjeldgaard, The Norwegian Centre for Technology and Art (Notam) 
 toc:  true
 linkcolor: blue
 urlcolor: blue
@@ -28,6 +28,8 @@ In this tutorial series, we will cover some of the basics of writing such plugin
 Before continuing I would like to extend a big thank you to the ever friendly and generous SuperCollider community for helping me understand these things a bit better and to my workplace [Notam](https://notam.no) for allowing me time to work on this.
 
 And on that note: If you need help with plugin development, there is [an entire subforum dedicated to the subject over on the SuperCollider forum](https://scsynth.org/c/development/server-plugins/29).
+
+The code to accompany this tutorial [may be found here](https://https://github.com/notam02/supercollider-plugin-tutorial).
 
 ## Why write a plugin for SuperCollider?
 Most users of SuperCollider will never experience the need for writing a plugin simply because the library of UGens that comes with SuperCollider is so rich in selection and effective in performance.
