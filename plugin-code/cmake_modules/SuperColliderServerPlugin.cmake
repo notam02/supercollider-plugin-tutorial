@@ -39,6 +39,10 @@ function(sc_add_server_plugin_properties target is_supernova)
         set_target_properties(${target} PROPERTIES SUFFIX ".scx")
     endif()
 
+    if(APPLE AND BUILD_UNIVERSAL)
+        set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64")
+    endif()
+
     target_include_directories(${target} PUBLIC
         ${SC_PATH}/include/plugin_interface
         ${SC_PATH}/include/common

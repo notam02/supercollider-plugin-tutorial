@@ -52,6 +52,7 @@ option(SCSYNTH "Build plugins for scsynth" ON)
 option(NATIVE "Optimize for native architecture" OFF)
 option(STRICT "Use strict warning flags" OFF)
 option(NOVA_SIMD "Build plugins with nova-simd support." ON)
+option(BUILD_UNIVERSAL "Build a universal binary (ARM and x86_64 architectures)" ON)
 
 ####################################################################################################
 # include libraries
