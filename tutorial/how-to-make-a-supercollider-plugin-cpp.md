@@ -2,13 +2,13 @@
 title: "SuperCollider serverplugins in C++"
 subtitle: "A tutorial"
 titlepage: true
-author: Mads Kjeldgaard, The Norwegian Centre for Technology and Art (Notam) 
+author: Mads Kjeldgaard and the SuperCollider community
 toc:  true
 linkcolor: blue
 urlcolor: blue
 fontsize: 12pt
 pagestyle:  headings
-date: 22-02-2021
+date: 28-07-2023
 ---
 
 # Introduction
