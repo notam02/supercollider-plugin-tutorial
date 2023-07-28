@@ -12,17 +12,19 @@ public:
     RampUpGen();
 
 private:
-    // Calc function
+    // Calc functions
     void next_a(int nSamples);
     void next_k(int nSamples);
-	inline float progressPhasor(float frequency);
 
+    // Helper functions
+	inline float progressPhasor(double phase, float frequency);
+
+    // Parameter names corresponding to our argument indices
 	enum Inputs { Frequency };
-    // Member variables
+    
+    // State variables
 	double m_phase{0.0};
-
-	// State variables
-	float m_frequency_past{0.f};
+	float m_frequency; // this will be initialized in the constructor
 };
 
 } // namespace RampUpGen

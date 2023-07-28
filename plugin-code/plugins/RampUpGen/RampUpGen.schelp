@@ -1,26 +1,68 @@
 class:: RampUpGen
-summary:: Ramping up values
-related:: TODO
-categories:: UGens>TODO
+summary:: Cyclically ramping up values
+related:: Classes/Saw, Classes/LFSaw
+categories:: UGens>Generators
+
 
 description::
 
-Ramping up values
+Generate cyclically ramping values from teletype::0.0:: to teletype::1.0::.
+teletype::RampUpGen:: behaves similarly to link::Classes/LFSaw::.
 
 
 classmethods::
 
-method::ar, kr
+method:: ar
 
-argument::TODO
+argument:: frequency
+Frequency of the ramping signal, in Hertz.
 
-argument::TODO
+method:: kr
+
+argument:: frequency
+Frequency of the ramping signal, in Hertz. Audio rate is not supported.
 
 
 examples::
 
 code::
+( // Plot the output
+s.waitForBoot{
+    { RampUpGen.ar(300) }.plot(3 * 1/300) // 3 cycles
+}
+)
 
-{ RampUpGen.ar(/* TODO */) }.play
+( // Inspect output values by storing in an array
+{ 
+    RampUpGen.ar(300) 
+}.loadToFloatArray(
+    1/300, // duration: one cycle
+    action:{ |arr| arr.do(_.postln) } // post the output
+)
+)
 
+( // Test all input rates, plot the output
+var freq = 300;
+{ 
+    RampUpGen.ar([
+        freq,        // initialization-rate (scalar) Frequency
+        DC.kr(freq), // control rate Frequency
+        DC.ar(freq)  // audio rate Frequency
+    ])
+}.plot(3 / freq) // 3 cycles
+)
+
+( // Test parameter modulation, at kr and ar rates
+var freqFrom = 300, freqTo = 2000;
+{ 
+    RampUpGen.ar([
+        Line.kr(freqFrom, freqTo, 3/freqFrom),
+        Line.ar(freqFrom, freqTo, 3/freqFrom)
+    ])
+}.plot(3 / freqFrom)
+)
+
+( // Try an invalid argument rate
+{ RampUpGen.kr(DC.ar(30)) }.plot(3 * 1/30) // 3 cycles
+)
 ::

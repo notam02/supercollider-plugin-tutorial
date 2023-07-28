@@ -9,9 +9,9 @@ RampUpGen : UGen {
 
 	checkInputs {
 
-		// Input 0 is frequency
-		if(inputs.at(0) == \audio, {
-			"You're not supposed to use audio rate here".error
+		// If you want to do custom rate checking...
+		if(this.rate == \control and: { inputs.at(0).rate == \audio }, {
+			^"An audio-rate frequency argument isn't allowed when RampUpGen runs at control rate."
 		});
 
 		// Checks if inputs are valid UGen inputs

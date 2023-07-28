@@ -132,11 +132,11 @@ set(SimpleGain_schelp_files
 )
 
 sc_add_server_plugin(
-  "${project_name}" # destination directory
-  "SimpleGain" # target name
-  "${SimpleGain_cpp_files}"
-  "${SimpleGain_sc_files}"
-  "${SimpleGain_schelp_files}"
+    "${project_name}" # destination directory
+    "SimpleGain" # target name
+    "${SimpleGain_cpp_files}"
+    "${SimpleGain_sc_files}"
+    "${SimpleGain_schelp_files}"
 )
 ```
 
@@ -234,28 +234,25 @@ Another important (and often overlooked) aspect of the SuperCollider class inter
 
 ```supercollider
 RampUpGen : UGen {
-	// Audio rate output
-	*ar { |frequency=1.0|
-		^this.multiNew('audio', frequency);
-	}
+    *ar { |frequency=1.0|
+      ^this.multiNew('audio', frequency);
+    }
 
-	// Control rate output
-	*kr { |frequency=1.0|
-		^this.multiNew('control', frequency);
-	}
+    *kr { |frequency=1.0|
+      ^this.multiNew('control', frequency);
+    }
 
-	// Check all inputs' rates
-	checkInputs {
+    checkInputs {
 
-		// Check the rate of the frequency argument
-		if(inputs.at(0) == \audio, {
-			"You're not supposed to use an audio rate as input to frequency.".error
-		});
+        // If you want to do custom rate checking...
+        if(this.rate == \control and: { inputs.at(0).rate == \audio }, {
+          ^"An audio-rate frequency argument isn't allowed when RampUpGen runs at control rate."
+        });
 
-		// Checks if inputs are valid UGen inputs (and not a GUI slider or something)
-		^this.checkValidInputs;
-	}
-
+        // Checks if inputs are valid UGen inputs
+        // And not a GUI slider or something...
+        ^this.checkValidInputs;
+    }
 }
 ```
 
@@ -269,19 +266,22 @@ Next step is to open up `RampUpGen.hpp` in a text editor. This is your header fi
 ```cpp
 class RampUpGen : public SCUnit {
 public:
-  RampUpGen();
+    RampUpGen();
 private:
-  // Calc function
-  void next(int nSamples);
+    // Calc function
+    void next(int nSamples);
 };
 ```
 As you can see above, it defines a public constructor for the class `RampUpGen()` and a private calculation function called `next(int nSamples)`. If you create a UGen that allocates memory (for example delay based UGens), then you should also define a destructor function which is the same name as the constructor but with a tilde prefixed: `~RampUpGen()`. It is omitted here since we don't need it.
 
-We only need to make one small adjustment to this. Under the `private:` keyword, declare a member variable that we can use to store our phase value in between calls to the `next` calculation function:
+Under the `private:` keyword, declare member variables that we can use to store the state of our UGen between processing blocks: the ramp's phase value and frequency.
 
 ```cpp
-// Ramp generator phase storage. Initialized to 0.0.
+// State variables
+// Ramp generator phase. Initialized to 0.0.
 double m_phase{0.0};
+// Ramp generator frequency. Uninitialized — remember to initialize in the constructor!
+float m_frequency;
 ```
 
 ### Creating the calculation function
@@ -293,15 +293,15 @@ Let's define this function.
 
 First, we need to figure out how much to increment our counter at every clock tick.
 
-This is done by dividing the frequency of our ramp generator with the samplerate (which is available to us using the `sampleRate()` function that comes with the plugin API) of our UGen.
+This is done by dividing the frequency of our ramp generator by the sample rate of our UGen. The sample rate is available to us using the `sampleRate()` function that comes with the plugin API.
 
 We will let the user of our UGen decide what frequency our ramp generator should be running at.
 
-This is done by polling the value that is supplied via the `frequency` parameter in the SuperCollider class defined above.
+This is done by reading the value that is supplied via the `frequency` argument in the SuperCollider class defined above.
 
-For this purpose, we use the `in0(int argumentInputNum)` method that comes with the plugin interface - it takes the index of the input argument as a parameter, in this case there is only one input parameter `frequency` so this will be equal to 0.
+For this, we use the `in0(int argumentInputNum)` function - it takes the index (`argumentInputNum`) of the parameter we want to read as an argument. In this case the (first and only) parameter, `frequency`, is at index `0`.
 
-One last thing to note here is that we will poll this argument at control rate, that is: It only inputs one value per sample block (see explanation above). To get the full sample block input for audio rate parameters you use the `in(int argumentInputNum)` method.
+One last thing to note here is that we will read this argument at _control rate_, that is: at a rate of one value per calculation block (see explanation above). This single value is the first value in the block at this input position, hence the "`0`" in the function name `in0`. 
 
 ```cpp
 // First UGen input is the frequency parameter
@@ -312,24 +312,24 @@ const float frequency = in0(0);
 // because division errors are accumulated as well
 double increment = static_cast<double>(frequency) / sampleRate();
 ```
-Every time our calculation function is called, we need to increase our output by _increment_ amount.
+If we instead want to read all samples in the calculation block from this input, we would use the `in(int argumentInputNum)` function, which instead returns a _pointer_ to the first sample of our input, which in turn is used to interate with in the calculation function's processing loop. This is demonstrated below.
+
+Anyway, every time our calculation function is called, we need to advance the phase of our ramp by an amount, `increment`.
 
 ```cpp
 m_phase += increment;
 ```
 
-Then, once our ramp generator reaches 1.0, we reset it to 0.0 to make it wrap back around at the beginning of the ramp.
+Then, once our ramp generator reaches `1.0`, we reset it to `0.0` to make it wrap back around at the beginning of the ramp.
 
 ```cpp
 const double minvalue = 0.0;
 const double maxvalue = 1.0;
 
-// Wrap
+// Wrap the phasor if it goes above maxvalue or below minvalue
 if (m_phase > maxvalue) {
-	// Wrap phase value
 	m_phase = minvalue + (m_phase - maxvalue);
 } else if (m_phase < minvalue) {
-	// in case phase is below minimum value
 	m_phase = maxvalue - std::fabs(m_phase);
 }
 ```
@@ -342,21 +342,21 @@ The schelp file could look something like this:
 
 ```
 class:: RampUpGen
-summary:: A simple ramp generator
-related:: Classes/Saw
-categories:: UGens
+summary:: Cyclically ramping up values
+related:: Classes/LFSaw
+categories:: UGens>Generators
 
 description::
 
-A simple ramp generator
+Generate cyclically ramping values from teletype::0.0:: to teletype::1.0::.
+teletype::RampUpGen:: behaves similarly to link::Classes/LFSaw::.
 
 classmethods::
 
-method::kr
+method:: ar, kr
 
-argument::frequency
-
-Set the frequency of the ramp generator.
+argument:: frequency
+Frequency of the ramping signal, in Hertz.
 
 examples::
 
@@ -368,6 +368,20 @@ code::
 ::
 ```
 
+It's good practice to explain the functionality and usage of your UGen concisely but completely. For example, list all possible rates at which your UGen runs, and the supported rates of the arguments. This is useful not only for users but also for your future self! (_What was I thinking?? Why didn't I support all argument rates??_)
+
+#### Modal tags
+
+It's encourages to use the `emphasis::` tag when referring to your UGen parameters, so they have the same visual emphasis of the rendered parameter name. The `code::` tag will both colorize and make the enclosed text executable. For visual emphasis and referring to variables or numbers, etc., `teletype::` will render text in a monospace font, without colorizing or making the text executable. When referring to other UGens, Classes, Tutorials, etc., it's helpful to `link::` to them, as in the example `description::` above.
+
+#### Contextual information
+Additional contextual information is helpful—if, for example, you're implementing a mathematical function or chaos algorithm, you can describe its behavior, range bounds and even link to web pages for more information. The `discussion::` modal tag is useful for this.
+
+If there are known undesireable behavior (will your filter blow up if a parameter is modulated too quickly?), it's kind to warn the user of this with the `warning::` modal tag.
+
+#### Examples (and tests)
+Examples are crucial! You'll undoubtedly (hopefully) be thoroughly testing your UGen in the course of development. Your test snippets would make great examples! (In fact, see the examples in the help file for `RampUpGen` for useful tests.) The more ways you can show the use of your UGen the better. Keep examples relatively simple to highlight the core function of _this_ UGen, but don't be afraid to show off a bit, especially with a musical example ;-). If you have more elaborate demonstrations, consider writing a [tutorial page](http://doc.sccode.org/Browse.html#Tutorials).
+
 ### Compile the plugin and try it out in SuperCollider
 
 Now a first version of your plugin should be finished. Build and compile your plugin using the CMake commands discussed earlier in this tutorial, recompile the SuperCollider class library and try messing around with it.
@@ -378,9 +392,9 @@ Before our plugin is done, there are some nice little things we can do to touch 
 
 ## Using enums to keep track of inputs
 
-Inputs and outputs in the C++ side of your UGen are represented as integers. The frequency-parameter in our RampUpGen UGen is represented by `0` since it's the first input to the UGen. To make it more readable and easier to keep track of parameters when you add more of them later on, a simple trick is to use [enums](https://https://en.cppreference.com/w/cpp/language/enum). At it's most basic, an enum may be used as a collection of aliases for integers. Using this for your parameters makes your code easier to read and maintain.
+Inputs and outputs in the C++ side of your UGen are represented as integers. The `frequency` parameter in our `RampUpGen` UGen is represented by `0` since it's the first input to the UGen. To make it more readable and easier to keep track of parameters when you add more of them later on, a simple trick is to use [enums](https://https://en.cppreference.com/w/cpp/language/enum). At its most basic, an enum may be used as a collection of aliases for integers. Using this for your parameters makes your code easier to read and maintain.
 
-In your header file, under the `private:`-keyword, add the following:
+In your header file, under the `private:` keyword, add the following:
 
 ```cpp
 enum Inputs { Frequency };
@@ -388,36 +402,37 @@ enum Inputs { Frequency };
 Then, in your plugin code, whenever you need the input number for frequency you simply type `Frequency`. Another nice thing is that you only have to reorder the items in this enum if you reorder your parameters, and the changes will automatically propagate.
 
 ## Delegating functionality to functions
-Another thing that can help keep your code clean is to delegate some of the functionality to methods outside of the calculation function. Because we are about to add a second calculation function, we can extract a bit of the ramp code to its own method and then call that in the calculation function.
+To keep your code clean and modular, it can be helpful to delegate some of the functionality to "helper" functions outside of the calculation function. Because we are about to add a second calculation function, we can extract a bit of the ramp generation code to its own function to be used by both calculation functions.
 
 To do this, add in your header file:
 
 ```cpp
-inline float progressPhasor(float frequency);
+// A helper function
+inline float progressPhasor(double phase, float frequency);
 ```
 
 And then implement it in your *.cpp*-file:
 ```cpp
-inline float RampUpGen::progressPhasor(float frequency) {
+// The ramp generator
+inline float RampUpGen::progressPhasor(double phase, float frequency) {
   // Calculate increment value.
   // Double precision is important in phase values
   // because division errors are accumulated as well
   double increment = static_cast<double>(frequency) / sampleRate();
-
-  m_phase += increment;
-
+  
+  phase += increment;
+  
   const double minvalue = 0.0;
   const double maxvalue = 1.0;
 
-  // Wrap the phasor if it goes beyond the boundaries
-  if (m_phase > maxvalue) {
-    m_phase = minvalue + (m_phase - maxvalue);
-  } else if (m_phase < minvalue) {
-    // in case phase is below minimum value
-    m_phase = maxvalue - std::fabs(m_phase);
+  // Wrap the phasor if it goes above maxvalue or below minvalue
+  if (phase > maxvalue) {
+      phase = minvalue + (phase - maxvalue);
+  } else if (phase < minvalue) {
+      phase = maxvalue - std::fabs(phase);
   }
 
-  return m_phase;
+  return phase;
 }
 ```
 
@@ -425,50 +440,49 @@ inline float RampUpGen::progressPhasor(float frequency) {
 
 Sometimes the user of a plugin may wish to modulate one of the UGen's parameters. In an environment such as SuperCollider, this is to be expected. When doing this, you may end up hearing crunchy or glitchy effects in the sound of your UGen. This is caused by a lack of interpolation in the control signal between each sample being processed. This results in steppy jumps between values instead of smooth trajectories. Let's fix this!
 
-The plugin API contains a very useful function for exactly this purpose. The trick is to use the type `SlopeSignal<float>` to represent and contain our input parameter's value. This is produced using the `makeSlope(current_value, previous_value)` function. And then, on each iteration of our calculation function's `for`-loop, we use the `.consume()` method to slowly step from the previous sample block's value to the current one. And then, after the `for`-loop we store the final value in a member variable that will be used next time the block is being processed.
+The plugin API contains a very useful function for exactly this purpose. The trick is to use the type `SlopeSignal<float>` to represent and contain our input parameter's value. This is produced using the `makeSlope(current_value, previous_value)` function. And then, on each iteration of our calculation function's `for`-loop, we use the `.consume()` method to slowly step from the previous block's sample value to the current one. Then, after the `for`-loop we store the final value in a member variable that will be used next time the block is processed.
 
 This is what our calculation function looks like with parameter interpolation:
 
 ```cpp
 void RampUpGen::next(int nSamples) {
-  const float frequencyParam = in(Frequency)[0];
-  SlopeSignal<float> slopedFrequency =
-      makeSlope(frequencyParam, m_frequency_past);
-  float *outbuf = out(0);
+    const float frequencyParam = in(Frequency)[0];
+    SlopeSignal<float> slopedFrequency =
+        makeSlope(frequencyParam, m_frequency);
+    float *outbuf = out(0);
+    double current_phase = m_phase;
 
-  for (int i = 0; i < nSamples; ++i) {
-    // Calculate increment value.
-    // Double precision is important in phase values
-    // because division errors are accumulated as well
-    double increment =
-        static_cast<double>(slopedFrequency.consume()) / sampleRate();
+    for (int i = 0; i < nSamples; ++i) {
+        // Write out the current phase
+        outbuf[i] = current_phase;
 
-    m_phase += increment;
+        // Calculate increment value.
+        // Double precision is important in phase values
+        // because division errors are accumulated as well
+        double increment =
+            static_cast<double>(slopedFrequency.consume()) / sampleRate();
+        
+        // Advance the phase
+        current_phase += increment;
 
-    const double minvalue = 0.0;
-    const double maxvalue = 1.0;
-
-    // Wrap the phasor if it goes beyond the boundaries
-    if (m_phase > maxvalue) {
-      m_phase = minvalue + (m_phase - maxvalue);
-    } else if (m_phase < minvalue) {
-      // in case phase is below minimum value
-      m_phase = maxvalue - std::fabs(m_phase);
+        // Wrap the phase if it goes above maxvalue or below minvalue
+        if (current_phase > maxvalue) {
+            current_phase = minvalue + (current_phase - maxvalue);
+        } else if (current_phase < minvalue) {
+            current_phase = maxvalue - std::fabs(current_phase);
+        } 
     }
 
-    outbuf[i] = m_phase;
-  }
-
-  // Store final value of frequency slope to
-  // be used next time the calculation
-  // function runs
-  m_frequency_past = slopedFrequency.value;
+    // Store final value of frequency and phase to be used next time the
+    // calculation function is called
+    m_frequency = slopedFrequency.value;
+    m_phase = current_phase;
 }
 ```
 ### Setting calculation function based on input rates
 Let's take this a step further. We actually only need to interpolate the frequency parameter if the parameter's input is control rate. If the input is audio rate, we get a full block's worth of `frequency`-parameter and thus we don't need the interpolation.
 
-The way to work around this and similar problems with multiple situations for the same plugin is to use multiple calculation functions, one for each calculation rate input for example. In our example we only have one parameter so we can make a `next_a` and `next_k` version of that function, one for audio rate inputs to the `frequency`-parameter and one for control (and scalar) rate inputs.
+The way to work around this and similar problems is with multiple cases for the same plugin to use different calculation functions, one for each calculation rate input for example. In our example we only have one parameter so we can make a `next_a` and `next_k` version of that function, one for audio rate inputs to the `frequency` parameter and one for control (and scalar) rate inputs.
 
 The Server Plugin API comes with a function you can use to poll an input number to see what rate it is running at:
 ```cpp
@@ -479,86 +493,79 @@ This is useful when used in combination with the constants (`calc_ScalarRate` fo
 ```cpp
 RampUpGen::RampUpGen() {
 
+  // Initialize the state of member variables that depend on input aruguments
+  m_frequency = in0(Frequency);
+
   // Set the UGen's calculation function depending on the rate of the first
-  // argument (frequency)
+  // argument (frequency). 
+  // Also, call that function for one calculation cycle, which  generates an 
+  // initialization sample for downstream UGens to use for their initialization.
   if (inRate(Frequency) == calc_FullRate) {
-    mCalcFunc = make_calc_function<RampUpGen, &RampUpGen::next_a>();
-
-    // Calculate first value
-    next_a(1);
+      mCalcFunc = make_calc_function<RampUpGen, &RampUpGen::next_a>();
+      next_a(1);
   } else {
-    mCalcFunc = make_calc_function<RampUpGen, &RampUpGen::next_k>();
-
-    // Calculate first value
-    next_k(1);
+      mCalcFunc = make_calc_function<RampUpGen, &RampUpGen::next_k>();
+      next_k(1);
   };
+
+  // Reset the initial state of member variables.
+  // This is so the initialization sample calulated above by 'next' matches
+  // the first output sample when the synth is run and 'next' is called again.
+  m_phase = 0.0;
+  // m_frequency is not reset because it's initial value is unaffected by 
+  // the next_k(1)
 }
 ```
+Note that in the final implementation, we replace `if (inRate(Frequency) == calc_FullRate)` with the equivalent function call `if (isAudioRateIn(Frequency))`. Explore the API for different ways to do what you need!
 
-And then our two calculation functions (`next_a` for audio rate `frequency`-parameter and `next_k` for control rate):
+Finally, we have our two calculation functions `next_a` and `next-k` (for audio- and control-rate `frequency` inputs, respectively):
 
 ```cpp
-// Calculation function for audio rate frequency input
+// Calculation function for audio-rate frequency input
 void RampUpGen::next_a(int nSamples) {
-  const float *frequency = in(Frequency);
-  float *outbuf = out(0);
+    const float *frequency = in(Frequency);
+    float *outbuf = out(0);
+    double current_phase = m_phase;
+    
+    for (int i = 0; i < nSamples; ++i) {
+        // Be sure to read from UGen's inputs BEFORE writing to outputs, 
+        // they share a buffer by default!
+        const float freq = frequency[i];
+        
+        // Write out the phase
+        outbuf[i] = current_phase;
 
-  for (int i = 0; i < nSamples; ++i) {
-    // Calculate increment value.
-    // Double precision is important in phase values
-    // because division errors are accumulated as well
-    double increment = static_cast<double>(frequency[i]) / sampleRate();
-
-    m_phase += increment;
-
-    const double minvalue = 0.0;
-    const double maxvalue = 1.0;
-
-    // Wrap the phasor if it goes beyond the boundaries
-    if (m_phase > maxvalue) {
-      m_phase = minvalue + (m_phase - maxvalue);
-    } else if (m_phase < minvalue) {
-      // in case phase is below minimum value
-      m_phase = maxvalue - std::fabs(m_phase);
+        // Advance the phase
+        current_phase = progressPhasor(current_phase, freq);
     }
 
-    outbuf[i] = m_phase;
-  }
+    // Store final value of phase to be used next time the
+    // calculation function runs
+    m_phase = current_phase;
 }
 
-// Calculation function for control rate frequency input
+// Calculation function for control-rate frequency input
 void RampUpGen::next_k(int nSamples) {
-  const float frequencyParam = in(Frequency)[0];
-  SlopeSignal<float> slopedFrequency =
-      makeSlope(frequencyParam, m_frequency_past);
-  float *outbuf = out(0);
+    const float frequencyParam = in(Frequency)[0];
+    SlopeSignal<float> slopedFrequency =
+        makeSlope(frequencyParam, m_frequency);
+    float *outbuf = out(0);
+    double current_phase = m_phase;
 
-  for (int i = 0; i < nSamples; ++i) {
-    // Calculate increment value.
-    // Double precision is important in phase values
-    // because division errors are accumulated as well
-    double increment =
-        static_cast<double>(slopedFrequency.consume()) / sampleRate();
+    for (int i = 0; i < nSamples; ++i) {
+        const float freq = slopedFrequency.consume();
 
-    m_phase += increment;
+        // Write out the phase
+        outbuf[i] = current_phase;
 
-    const double minvalue = 0.0;
-    const double maxvalue = 1.0;
-
-    // Wrap the phasor if it goes beyond the boundaries
-    if (m_phase > maxvalue) {
-      m_phase = minvalue + (m_phase - maxvalue);
-    } else if (m_phase < minvalue) {
-      // in case phase is below minimum value
-      m_phase = maxvalue - std::fabs(m_phase);
+        // Advance the phase
+        current_phase = progressPhasor(current_phase, freq);
     }
 
-    outbuf[i] = m_phase;
-  }
-
-  // Store final value of frequency slope to be used next time the calculation
-  // function runs
-  m_frequency_past = slopedFrequency.value;
+    // Store final value of frequency and phase to be used next time the
+    // calculation function is called
+    m_frequency = slopedFrequency.value;
+    m_phase = current_phase;
 }
 ```
 
